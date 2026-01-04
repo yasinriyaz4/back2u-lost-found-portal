@@ -21,6 +21,7 @@ export interface Item {
   location: string;
   item_date: string;
   image_url: string | null;
+  image_urls: string[];
   contact_number: string | null;
   status: ItemStatus;
   created_at: string;

@@ -30,7 +30,9 @@ import {
   Trash2,
   CheckCircle,
   Clock,
-  ArrowLeft
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -47,6 +49,7 @@ const ItemDetail = () => {
   const [message, setMessage] = useState('');
   const [reportReason, setReportReason] = useState('');
   const [sending, setSending] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const isOwner = user?.id === item?.user_id;
 
@@ -191,6 +194,21 @@ const ItemDetail = () => {
     found: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
   };
 
+  // Get image URLs - prefer image_urls array, fallback to single image_url
+  const imageUrls = (item as any).image_urls?.length > 0 
+    ? (item as any).image_urls 
+    : item.image_url 
+      ? [item.image_url] 
+      : [];
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % imageUrls.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length);
+  };
+
   return (
     <Layout>
       <div className="container py-8">
@@ -206,20 +224,78 @@ const ItemDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Image */}
-            <div className="aspect-video rounded-xl overflow-hidden bg-muted">
-              {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
-                />
+            {/* Image Gallery */}
+            <div className="relative aspect-video rounded-xl overflow-hidden bg-muted">
+              {imageUrls.length > 0 ? (
+                <>
+                  <img
+                    src={imageUrls[currentImageIndex]}
+                    alt={`${item.title} - Image ${currentImageIndex + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {imageUrls.length > 1 && (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 opacity-80 hover:opacity-100"
+                        onClick={prevImage}
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-80 hover:opacity-100"
+                        onClick={nextImage}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </Button>
+                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                        {imageUrls.map((_: string, index: number) => (
+                          <button
+                            key={index}
+                            className={`w-2 h-2 rounded-full transition-colors ${
+                              index === currentImageIndex 
+                                ? 'bg-white' 
+                                : 'bg-white/50 hover:bg-white/75'
+                            }`}
+                            onClick={() => setCurrentImageIndex(index)}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                   <span className="text-8xl">📦</span>
                 </div>
               )}
             </div>
+
+            {/* Thumbnails */}
+            {imageUrls.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {imageUrls.map((url: string, index: number) => (
+                  <button
+                    key={index}
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${
+                      index === currentImageIndex 
+                        ? 'border-primary' 
+                        : 'border-transparent hover:border-muted-foreground/50'
+                    }`}
+                    onClick={() => setCurrentImageIndex(index)}
+                  >
+                    <img
+                      src={url}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Details */}
             <Card>

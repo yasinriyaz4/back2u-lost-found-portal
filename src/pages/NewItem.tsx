@@ -40,13 +40,15 @@ const itemSchema = z.object({
 
 type ItemFormData = z.infer<typeof itemSchema>;
 
+const MAX_IMAGES = 5;
+
 const NewItem = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const form = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
@@ -61,27 +63,50 @@ const NewItem = () => {
   });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const remainingSlots = MAX_IMAGES - imageFiles.length;
+    if (files.length > remainingSlots) {
+      toast({
+        title: 'Too many images',
+        description: `You can only upload ${MAX_IMAGES} images. ${remainingSlots} slot(s) remaining.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const validFiles: File[] = [];
+    const validPreviews: string[] = [];
+
+    for (const file of files) {
       if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
         toast({
           title: 'Invalid file type',
-          description: 'Please upload a JPG, JPEG, or PNG image',
+          description: `${file.name}: Please upload JPG, JPEG, or PNG images only`,
           variant: 'destructive',
         });
-        return;
+        continue;
       }
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: 'File too large',
-          description: 'Please upload an image smaller than 5MB',
+          description: `${file.name}: Must be smaller than 5MB`,
           variant: 'destructive',
         });
-        return;
+        continue;
       }
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      validFiles.push(file);
+      validPreviews.push(URL.createObjectURL(file));
     }
+
+    setImageFiles(prev => [...prev, ...validFiles]);
+    setImagePreviews(prev => [...prev, ...validPreviews]);
+  };
+
+  const removeImage = (index: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const onSubmit = async (data: ItemFormData) => {
@@ -92,13 +117,13 @@ const NewItem = () => {
 
     setLoading(true);
     try {
-      let imageUrl = null;
+      const imageUrls: string[] = [];
 
-      if (imageFile) {
+      for (const imageFile of imageFiles) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
         
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('item-images')
           .upload(fileName, imageFile);
 
@@ -108,7 +133,7 @@ const NewItem = () => {
           .from('item-images')
           .getPublicUrl(fileName);
 
-        imageUrl = publicUrl;
+        imageUrls.push(publicUrl);
       }
 
       const { error } = await supabase.from('items').insert({
@@ -119,7 +144,8 @@ const NewItem = () => {
         location: data.location,
         item_date: data.item_date,
         contact_number: data.contact_number || null,
-        image_url: imageUrl,
+        image_url: imageUrls[0] || null,
+        image_urls: imageUrls,
       });
 
       if (error) throw error;
@@ -261,43 +287,47 @@ const NewItem = () => {
                 />
 
                 <div>
-                  <FormLabel>Image (Optional)</FormLabel>
-                  <div className="mt-2">
-                    {imagePreview ? (
-                      <div className="relative">
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview" 
-                          className="w-full max-h-64 object-cover rounded-lg"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => {
-                            setImageFile(null);
-                            setImagePreview(null);
-                          }}
-                        >
-                          Remove
-                        </Button>
+                  <FormLabel>Images (Optional, up to {MAX_IMAGES})</FormLabel>
+                  <div className="mt-2 space-y-4">
+                    {imagePreviews.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {imagePreviews.map((preview, index) => (
+                          <div key={index} className="relative aspect-square">
+                            <img 
+                              src={preview} 
+                              alt={`Preview ${index + 1}`} 
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6"
+                              onClick={() => removeImage(index)}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                        <div className="flex flex-col items-center justify-center py-6">
-                          <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                    )}
+                    
+                    {imageFiles.length < MAX_IMAGES && (
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                        <div className="flex flex-col items-center justify-center py-4">
+                          <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                           <p className="text-sm text-muted-foreground">
-                            Click to upload an image
+                            Click to upload images
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            PNG, JPG up to 5MB
+                            PNG, JPG up to 5MB each ({imageFiles.length}/{MAX_IMAGES})
                           </p>
                         </div>
                         <input
                           type="file"
                           className="hidden"
                           accept="image/png,image/jpeg,image/jpg"
+                          multiple
                           onChange={handleImageChange}
                         />
                       </label>
