@@ -22,6 +22,7 @@ export type Database = {
           description: string
           id: string
           image_url: string | null
+          image_urls: string[] | null
           item_date: string
           location: string
           status: Database["public"]["Enums"]["item_status"]
@@ -36,6 +37,7 @@ export type Database = {
           description: string
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           item_date: string
           location: string
           status?: Database["public"]["Enums"]["item_status"]
@@ -50,6 +52,7 @@ export type Database = {
           description?: string
           id?: string
           image_url?: string | null
+          image_urls?: string[] | null
           item_date?: string
           location?: string
           status?: Database["public"]["Enums"]["item_status"]

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Item } from '@/types/database';
-import { MapPin, Calendar, User } from 'lucide-react';
+import { MapPin, Calendar, User, Images } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ItemCardProps {
@@ -21,13 +21,22 @@ export const ItemCard = ({ item }: ItemCardProps) => {
     found: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
   };
 
+  // Get image URLs - prefer image_urls array, fallback to single image_url
+  const imageUrls = (item as any).image_urls?.length > 0 
+    ? (item as any).image_urls 
+    : item.image_url 
+      ? [item.image_url] 
+      : [];
+
+  const displayImage = imageUrls[0];
+
   return (
     <Link to={`/items/${item.id}`}>
       <Card className="h-full overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group">
         <div className="aspect-video relative overflow-hidden bg-muted">
-          {item.image_url ? (
+          {displayImage ? (
             <img
-              src={item.image_url}
+              src={displayImage}
               alt={item.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -41,7 +50,13 @@ export const ItemCard = ({ item }: ItemCardProps) => {
               {item.category === 'lost' ? '🔴 Lost' : '🟢 Found'}
             </Badge>
           </div>
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-3 right-3 flex gap-2">
+            {imageUrls.length > 1 && (
+              <Badge variant="secondary" className="bg-black/60 text-white border-0">
+                <Images className="h-3 w-3 mr-1" />
+                {imageUrls.length}
+              </Badge>
+            )}
             <Badge className={statusColors[item.status]} variant="outline">
               {item.status}
             </Badge>
