@@ -8,6 +8,7 @@ export interface Profile {
   email: string;
   phone: string | null;
   avatar_url: string | null;
+  email_notifications?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -58,4 +59,28 @@ export interface UserRole {
   user_id: string;
   role: AppRole;
   created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'match' | 'message' | 'status_change';
+  title: string;
+  message: string;
+  item_id?: string | null;
+  related_item_id?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface ItemMatch {
+  id: string;
+  lost_item_id: string;
+  found_item_id: string;
+  match_score: number;
+  match_reason?: string | null;
+  status: 'pending' | 'confirmed' | 'dismissed';
+  created_at: string;
+  lost_item?: Item;
+  found_item?: Item;
 }

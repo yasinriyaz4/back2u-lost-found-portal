@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useMessages } from '@/hooks/useMessages';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { 
   Menu, 
   X, 
@@ -62,9 +63,11 @@ export const Navbar = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {user ? (
             <>
+              <NotificationBell />
+              
               <Link to="/messages" className="relative hidden md:flex">
                 <Button variant="ghost" size="icon">
                   <MessageSquare className="h-5 w-5" />

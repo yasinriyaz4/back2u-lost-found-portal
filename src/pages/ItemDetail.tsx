@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useItem } from '@/hooks/useItems';
+import { useItemMatches } from '@/hooks/useItemMatches';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Loader } from '@/components/ui/loader';
 import { useToast } from '@/hooks/use-toast';
+import { MatchCard } from '@/components/matches/MatchCard';
 import { 
   MapPin, 
   Calendar, 
@@ -32,7 +34,9 @@ import {
   Clock,
   ArrowLeft,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -41,6 +45,7 @@ const ItemDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { item, loading, error } = useItem(id);
+  const { matches, updateMatchStatus, findMatches, loading: matchesLoading } = useItemMatches(id);
   const { toast } = useToast();
   
   const [messageOpen, setMessageOpen] = useState(false);
@@ -50,8 +55,45 @@ const ItemDetail = () => {
   const [reportReason, setReportReason] = useState('');
   const [sending, setSending] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [findingMatches, setFindingMatches] = useState(false);
 
   const isOwner = user?.id === item?.user_id;
+
+  const handleFindMatches = async () => {
+    if (!id) return;
+    setFindingMatches(true);
+    const { error } = await findMatches(id);
+    setFindingMatches(false);
+    
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to find matches. Please try again.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Matching complete',
+        description: 'We\'ve searched for potential matches.',
+      });
+    }
+  };
+
+  const handleConfirmMatch = async (matchId: string) => {
+    const { error } = await updateMatchStatus(matchId, 'confirmed');
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to confirm match', variant: 'destructive' });
+    } else {
+      toast({ title: 'Match confirmed!', description: 'You can now contact the owner.' });
+    }
+  };
+
+  const handleDismissMatch = async (matchId: string) => {
+    const { error } = await updateMatchStatus(matchId, 'dismissed');
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to dismiss match', variant: 'destructive' });
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!user || !item || !message.trim()) return;
@@ -398,6 +440,68 @@ const ItemDetail = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Potential Matches */}
+            {isOwner && item.status === 'active' && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-yellow-500" />
+                      Potential Matches
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleFindMatches}
+                      disabled={findingMatches}
+                    >
+                      {findingMatches ? (
+                        <Loader size="sm" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {matchesLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader size="sm" />
+                    </div>
+                  ) : matches.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p className="text-sm">No matches found yet.</p>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={handleFindMatches}
+                        disabled={findingMatches}
+                      >
+                        Search for matches
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {matches.slice(0, 3).map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          currentItemId={id}
+                          onConfirm={handleConfirmMatch}
+                          onDismiss={handleDismissMatch}
+                        />
+                      ))}
+                      {matches.length > 3 && (
+                        <p className="text-xs text-center text-muted-foreground">
+                          +{matches.length - 3} more matches
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Owner Actions */}
             {isOwner && (

@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      item_matches: {
+        Row: {
+          created_at: string
+          found_item_id: string
+          id: string
+          lost_item_id: string
+          match_reason: string | null
+          match_score: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          found_item_id: string
+          id?: string
+          lost_item_id: string
+          match_reason?: string | null
+          match_score: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          found_item_id?: string
+          id?: string
+          lost_item_id?: string
+          match_reason?: string | null
+          match_score?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_matches_found_item_id_fkey"
+            columns: ["found_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_matches_lost_item_id_fkey"
+            columns: ["lost_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       items: {
         Row: {
           category: Database["public"]["Enums"]["item_category"]
@@ -108,11 +153,70 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          item_id: string | null
+          message: string
+          related_item_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          item_id?: string | null
+          message: string
+          related_item_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          item_id?: string | null
+          message?: string
+          related_item_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_related_item_id_fkey"
+            columns: ["related_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string
           email: string
+          email_notifications: boolean
           id: string
           name: string
           phone: string | null
@@ -122,6 +226,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email: string
+          email_notifications?: boolean
           id: string
           name: string
           phone?: string | null
@@ -131,6 +236,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string
+          email_notifications?: boolean
           id?: string
           name?: string
           phone?: string | null
