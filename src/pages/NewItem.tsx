@@ -150,9 +150,24 @@ const NewItem = () => {
 
       if (error) throw error;
 
+      // Trigger matching in background
+      const { data: insertedItem } = await supabase
+        .from('items')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (insertedItem) {
+        supabase.functions.invoke('find-matches', {
+          body: { itemId: insertedItem.id },
+        }).catch(console.error);
+      }
+
       toast({
         title: 'Item posted successfully!',
-        description: `Your ${data.category} item has been posted.`,
+        description: `Your ${data.category} item has been posted. We'll notify you of any matches!`,
       });
 
       navigate('/dashboard');

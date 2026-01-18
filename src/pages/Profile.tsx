@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Loader } from '@/components/ui/loader';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Save, Trash2 } from 'lucide-react';
+import { Camera, Save, Trash2, Bell } from 'lucide-react';
 
 const Profile = () => {
   const { user, profile, updateProfile, signOut } = useAuth();
@@ -19,13 +21,14 @@ const Profile = () => {
   
   const [name, setName] = useState(profile?.name || '');
   const [phone, setPhone] = useState(profile?.phone || '');
+  const [emailNotifications, setEmailNotifications] = useState(profile?.email_notifications ?? true);
   const [loading, setLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const handleSave = async () => {
     setLoading(true);
-    const { error } = await updateProfile({ name, phone });
+    const { error } = await updateProfile({ name, phone, email_notifications: emailNotifications });
     setLoading(false);
 
     if (error) {
@@ -196,6 +199,38 @@ const Profile = () => {
               <Button onClick={handleSave} disabled={loading}>
                 {loading ? <Loader size="sm" className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Notification Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notification Settings
+              </CardTitle>
+              <CardDescription>
+                Manage how you receive notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="email-notifications">Email Notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Receive email alerts for matches, messages, and updates
+                  </p>
+                </div>
+                <Switch
+                  id="email-notifications"
+                  checked={emailNotifications}
+                  onCheckedChange={setEmailNotifications}
+                />
+              </div>
+              <Button onClick={handleSave} disabled={loading} variant="outline">
+                {loading ? <Loader size="sm" className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Preferences
               </Button>
             </CardContent>
           </Card>
