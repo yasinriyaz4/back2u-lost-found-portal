@@ -26,10 +26,15 @@ import {
   Eye,
   Shield,
   BarChart3,
-  TrendingUp
+  Bell,
+  Link2,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Profile, Item, Report } from '@/types/database';
+import { Profile, Item, Report, Notification, ItemMatch } from '@/types/database';
+
+type AdminMatch = { id: string; lost_item_id: string; found_item_id: string; match_score: number; match_reason?: string | null; status: string; created_at: string; lost_item?: Item; found_item?: Item };
 
 const Admin = () => {
   const { user, isAdmin } = useAuth();
@@ -39,9 +44,13 @@ const Admin = () => {
   const [users, setUsers] = useState<Profile[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [notifications, setNotifications] = useState<(Notification & { profile?: Profile })[]>([]);
+  const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [deleteNotificationId, setDeleteNotificationId] = useState<string | null>(null);
+  const [deleteMatchId, setDeleteMatchId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -52,15 +61,19 @@ const Admin = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [usersRes, itemsRes, reportsRes] = await Promise.all([
+        const [usersRes, itemsRes, reportsRes, notificationsRes, matchesRes] = await Promise.all([
           supabase.from('profiles').select('*').order('created_at', { ascending: false }),
           supabase.from('items').select('*, profiles(*)').order('created_at', { ascending: false }),
           supabase.from('reports').select('*, profiles(*), items(*)').order('created_at', { ascending: false }),
+          supabase.from('notifications').select('*, profiles(*)').order('created_at', { ascending: false }),
+          supabase.from('item_matches').select('*, lost_item:items!item_matches_lost_item_id_fkey(*), found_item:items!item_matches_found_item_id_fkey(*)').order('created_at', { ascending: false }),
         ]);
 
         setUsers((usersRes.data as Profile[]) || []);
         setItems((itemsRes.data as unknown as Item[]) || []);
         setReports((reportsRes.data as unknown as Report[]) || []);
+        setNotifications((notificationsRes.data as unknown as (Notification & { profile?: Profile })[]) || []);
+        setMatches((matchesRes.data as unknown as AdminMatch[]) || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -119,6 +132,54 @@ const Admin = () => {
     }
   };
 
+  const handleDeleteNotification = async () => {
+    if (!deleteNotificationId) return;
+
+    try {
+      const { error } = await supabase.from('notifications').delete().eq('id', deleteNotificationId);
+      if (error) throw error;
+
+      setNotifications(notifications.filter(n => n.id !== deleteNotificationId));
+      toast({ title: 'Notification deleted', description: 'Notification has been removed.' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to delete notification', variant: 'destructive' });
+    } finally {
+      setDeleteNotificationId(null);
+    }
+  };
+
+  const handleDeleteMatch = async () => {
+    if (!deleteMatchId) return;
+
+    try {
+      const { error } = await supabase.from('item_matches').delete().eq('id', deleteMatchId);
+      if (error) throw error;
+
+      setMatches(matches.filter(m => m.id !== deleteMatchId));
+      toast({ title: 'Match deleted', description: 'Match has been removed.' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to delete match', variant: 'destructive' });
+    } finally {
+      setDeleteMatchId(null);
+    }
+  };
+
+  const handleUpdateMatchStatus = async (matchId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('item_matches')
+        .update({ status: newStatus as ItemMatch['status'] })
+        .eq('id', matchId);
+      
+      if (error) throw error;
+
+      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, status: newStatus } : m));
+      toast({ title: `Match ${newStatus}` });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to update match', variant: 'destructive' });
+    }
+  };
+
   if (!isAdmin) {
     return null;
   }
@@ -126,6 +187,8 @@ const Admin = () => {
   const lostItems = items.filter(i => i.category === 'lost');
   const foundItems = items.filter(i => i.category === 'found');
   const pendingReports = reports.filter(r => r.status === 'pending');
+  const pendingMatches = matches.filter(m => m.status === 'pending');
+  const unreadNotifications = notifications.filter(n => !n.is_read);
 
   return (
     <Layout showFooter={false}>
@@ -142,7 +205,7 @@ const Admin = () => {
         ) : (
           <>
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -168,7 +231,7 @@ const Admin = () => {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Lost/Found Ratio
+                    Lost/Found
                   </CardTitle>
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
@@ -189,17 +252,57 @@ const Admin = () => {
                   <div className="text-2xl font-bold">{pendingReports.length}</div>
                 </CardContent>
               </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Notifications
+                  </CardTitle>
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{notifications.length}</div>
+                  {unreadNotifications.length > 0 && (
+                    <p className="text-xs text-muted-foreground">{unreadNotifications.length} unread</p>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Matches
+                  </CardTitle>
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{matches.length}</div>
+                  {pendingMatches.length > 0 && (
+                    <p className="text-xs text-muted-foreground">{pendingMatches.length} pending</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Tabs */}
             <Tabs defaultValue="users">
-              <TabsList className="mb-6">
+              <TabsList className="mb-6 flex-wrap">
                 <TabsTrigger value="users">Users ({users.length})</TabsTrigger>
                 <TabsTrigger value="items">Items ({items.length})</TabsTrigger>
                 <TabsTrigger value="reports">
                   Reports 
                   {pendingReports.length > 0 && (
                     <Badge className="ml-2" variant="destructive">{pendingReports.length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="notifications">
+                  Notifications
+                  {unreadNotifications.length > 0 && (
+                    <Badge className="ml-2" variant="secondary">{unreadNotifications.length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="matches">
+                  Matches
+                  {pendingMatches.length > 0 && (
+                    <Badge className="ml-2" variant="outline">{pendingMatches.length}</Badge>
                   )}
                 </TabsTrigger>
               </TabsList>
@@ -363,6 +466,167 @@ const Admin = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <TabsContent value="notifications">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>All Notifications</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {notifications.length === 0 ? (
+                      <p className="text-center py-8 text-muted-foreground">No notifications yet</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Message</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>User</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {notifications.map((notification) => (
+                            <TableRow key={notification.id}>
+                              <TableCell className="font-medium">{notification.title}</TableCell>
+                              <TableCell className="max-w-xs truncate">{notification.message}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{notification.type}</Badge>
+                              </TableCell>
+                              <TableCell>{notification.profile?.name || 'Unknown'}</TableCell>
+                              <TableCell>
+                                <Badge variant={notification.is_read ? 'secondary' : 'default'}>
+                                  {notification.is_read ? 'Read' : 'Unread'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{format(new Date(notification.created_at), 'MMM d, yyyy')}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  {notification.item_id && (
+                                    <Button variant="ghost" size="icon" asChild>
+                                      <Link to={`/items/${notification.item_id}`}>
+                                        <Eye className="h-4 w-4" />
+                                      </Link>
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => setDeleteNotificationId(notification.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="matches">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AI-Detected Matches</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {matches.length === 0 ? (
+                      <p className="text-center py-8 text-muted-foreground">No matches yet</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Lost Item</TableHead>
+                            <TableHead>Found Item</TableHead>
+                            <TableHead>Score</TableHead>
+                            <TableHead>Reason</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {matches.map((match) => (
+                            <TableRow key={match.id}>
+                              <TableCell>
+                                <Link 
+                                  to={`/items/${match.lost_item_id}`} 
+                                  className="font-medium text-primary hover:underline"
+                                >
+                                  {match.lost_item?.title || 'Deleted'}
+                                </Link>
+                              </TableCell>
+                              <TableCell>
+                                <Link 
+                                  to={`/items/${match.found_item_id}`} 
+                                  className="font-medium text-primary hover:underline"
+                                >
+                                  {match.found_item?.title || 'Deleted'}
+                                </Link>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={match.match_score >= 0.8 ? 'default' : match.match_score >= 0.5 ? 'secondary' : 'outline'}>
+                                  {Math.round(match.match_score * 100)}%
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="max-w-xs truncate">{match.match_reason || 'N/A'}</TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={
+                                    match.status === 'confirmed' ? 'default' : 
+                                    match.status === 'dismissed' ? 'destructive' : 
+                                    'outline'
+                                  }
+                                >
+                                  {match.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{format(new Date(match.created_at), 'MMM d, yyyy')}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  {match.status === 'pending' && (
+                                    <>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon"
+                                        onClick={() => handleUpdateMatchStatus(match.id, 'confirmed')}
+                                        title="Confirm match"
+                                      >
+                                        <CheckCircle className="h-4 w-4 text-green-600" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon"
+                                        onClick={() => handleUpdateMatchStatus(match.id, 'dismissed')}
+                                        title="Dismiss match"
+                                      >
+                                        <XCircle className="h-4 w-4 text-orange-600" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => setDeleteMatchId(match.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           </>
         )}
@@ -385,6 +649,26 @@ const Admin = () => {
         description="This will permanently delete this item. This action cannot be undone."
         confirmText="Delete"
         onConfirm={handleDeleteItem}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={!!deleteNotificationId}
+        onOpenChange={(open) => !open && setDeleteNotificationId(null)}
+        title="Delete Notification"
+        description="This will permanently delete this notification. This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={handleDeleteNotification}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={!!deleteMatchId}
+        onOpenChange={(open) => !open && setDeleteMatchId(null)}
+        title="Delete Match"
+        description="This will permanently delete this match record. This action cannot be undone."
+        confirmText="Delete"
+        onConfirm={handleDeleteMatch}
         variant="destructive"
       />
     </Layout>
