@@ -8,6 +8,8 @@ interface ItemFilters {
   status?: ItemStatus | 'all';
   startDate?: string;
   endDate?: string;
+  dateFrom?: string;
+  dateTo?: string;
   userId?: string;
 }
 
@@ -48,12 +50,12 @@ export const useItems = (options: UseItemsOptions = {}) => {
         query = query.eq('status', filters.status);
       }
 
-      if (filters.startDate) {
-        query = query.gte('item_date', filters.startDate);
+      if (filters.startDate || filters.dateFrom) {
+        query = query.gte('item_date', filters.startDate || filters.dateFrom);
       }
 
-      if (filters.endDate) {
-        query = query.lte('item_date', filters.endDate);
+      if (filters.endDate || filters.dateTo) {
+        query = query.lte('item_date', filters.endDate || filters.dateTo);
       }
 
       if (filters.userId) {

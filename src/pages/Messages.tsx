@@ -1,49 +1,101 @@
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMessages } from '@/hooks/useMessages';
 import { Layout } from '@/components/layout/Layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ui/loader';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
-import { MessageSquare, User, Package, Check } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
+import { ChatThread } from '@/components/messages/ChatThread';
+import { ConversationList } from '@/components/messages/ConversationList';
+import { Profile } from '@/types/database';
 
 const Messages = () => {
   const { user } = useAuth();
-  const { messages, loading, markAsRead } = useMessages();
+  const { messages, loading } = useMessages();
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
-  const handleMarkAsRead = async (messageId: string) => {
-    await markAsRead(messageId);
+  // Group messages into conversations
+  const conversations = useMemo(() => {
+    if (!user) return [];
+
+    const convMap = new Map<string, {
+      otherUserId: string;
+      otherProfile: Profile | null;
+      messages: typeof messages;
+      lastMessage: typeof messages[0];
+      unreadCount: number;
+    }>();
+
+    messages.forEach((msg) => {
+      const otherUserId = msg.from_user_id === user.id ? msg.to_user_id : msg.from_user_id;
+      const otherProfile = msg.from_user_id === user.id ? msg.to_profile : msg.from_profile;
+
+      if (!convMap.has(otherUserId)) {
+        convMap.set(otherUserId, {
+          otherUserId,
+          otherProfile: otherProfile || null,
+          messages: [],
+          lastMessage: msg,
+          unreadCount: 0,
+        });
+      }
+
+      const conv = convMap.get(otherUserId)!;
+      conv.messages.push(msg);
+      
+      // Update last message if this one is newer
+      if (new Date(msg.created_at) > new Date(conv.lastMessage.created_at)) {
+        conv.lastMessage = msg;
+      }
+
+      // Count unread
+      if (msg.to_user_id === user.id && !msg.is_read) {
+        conv.unreadCount++;
+      }
+    });
+
+    // Sort by last message date
+    return Array.from(convMap.values()).sort(
+      (a, b) => new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime()
+    );
+  }, [messages, user]);
+
+  const handleSelectConversation = (userId: string, profile: Profile | null) => {
+    setSelectedUserId(userId);
+    setSelectedProfile(profile);
+  };
+
+  const handleBack = () => {
+    setSelectedUserId(null);
+    setSelectedProfile(null);
   };
 
   if (!user) {
     return null;
   }
 
-  // Group messages by conversation (other user)
-  const conversations = messages.reduce((acc, msg) => {
-    const otherUserId = msg.from_user_id === user.id ? msg.to_user_id : msg.from_user_id;
-    if (!acc[otherUserId]) {
-      acc[otherUserId] = [];
-    }
-    acc[otherUserId].push(msg);
-    return acc;
-  }, {} as Record<string, typeof messages>);
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center min-h-[60vh]">
+          <Loader size="lg" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      <div className="container py-8 max-w-3xl">
+      <div className="container py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-8">
           <MessageSquare className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold">Messages</h1>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader size="lg" />
-          </div>
-        ) : messages.length === 0 ? (
+        {messages.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <div className="text-6xl mb-4">💬</div>
@@ -54,62 +106,39 @@ const Messages = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
-            {messages.map((msg) => {
-              const isFromMe = msg.from_user_id === user.id;
-              const otherProfile = isFromMe ? msg.to_profile : msg.from_profile;
-              
-              return (
-                <Card 
-                  key={msg.id} 
-                  className={`transition-colors ${!msg.is_read && !isFromMe ? 'border-primary/50 bg-primary/5' : ''}`}
-                >
-                  <CardContent className="py-4">
-                    <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <User className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">
-                            {isFromMe ? `To: ${otherProfile?.name || 'Unknown'}` : `From: ${otherProfile?.name || 'Unknown'}`}
-                          </span>
-                          {!msg.is_read && !isFromMe && (
-                            <Badge variant="default" className="text-xs">New</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                          {msg.content}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>{format(new Date(msg.created_at), 'MMM d, yyyy h:mm a')}</span>
-                          {msg.item_id && (
-                            <Link 
-                              to={`/items/${msg.item_id}`} 
-                              className="flex items-center gap-1 hover:text-foreground transition-colors"
-                            >
-                              <Package className="h-3 w-3" />
-                              View Item
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                      {!msg.is_read && !isFromMe && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleMarkAsRead(msg.id)}
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          Mark Read
-                        </Button>
-                      )}
+          <Card className="overflow-hidden">
+            <div className="flex h-[600px]">
+              {/* Conversation List - Hidden on mobile when chat is open */}
+              <div className={`w-full md:w-80 border-r border-border overflow-y-auto ${selectedUserId ? 'hidden md:block' : ''}`}>
+                <div className="p-4 border-b border-border bg-muted/30">
+                  <h2 className="font-semibold">Conversations</h2>
+                </div>
+                <ConversationList
+                  conversations={conversations}
+                  selectedUserId={selectedUserId}
+                  onSelect={handleSelectConversation}
+                />
+              </div>
+
+              {/* Chat Thread */}
+              <div className={`flex-1 ${!selectedUserId ? 'hidden md:flex' : 'flex'}`}>
+                {selectedUserId ? (
+                  <ChatThread
+                    otherUserId={selectedUserId}
+                    otherProfile={selectedProfile}
+                    onBack={handleBack}
+                  />
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>Select a conversation to start messaging</p>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
         )}
       </div>
     </Layout>
