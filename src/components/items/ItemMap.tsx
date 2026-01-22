@@ -15,6 +15,7 @@ L.Icon.Default.mergeOptions({
 interface ItemMapProps {
   items: Item[];
   className?: string;
+  userLocation?: { lat: number; lon: number };
 }
 
 // Mock geocoding - in production, use a real geocoding service
@@ -75,7 +76,18 @@ const foundIcon = new L.Icon({
   popupAnchor: [0, -32],
 });
 
-export const ItemMap = ({ items, className = '' }: ItemMapProps) => {
+// User location icon
+const userIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#3b82f6" width="32" height="32">
+      <circle cx="12" cy="12" r="8" stroke="#ffffff" stroke-width="2"/>
+    </svg>
+  `),
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
+export const ItemMap = ({ items, className = '', userLocation }: ItemMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const navigate = useNavigate();
@@ -159,12 +171,19 @@ export const ItemMap = ({ items, className = '' }: ItemMapProps) => {
       markers.push(marker);
     });
 
+    // Add user location marker if available
+    if (userLocation) {
+      const userMarker = L.marker([userLocation.lat, userLocation.lon], { icon: userIcon }).addTo(map);
+      userMarker.bindPopup('<div style="text-align: center; font-weight: 500;">📍 Your Location</div>');
+      markers.push(userMarker);
+    }
+
     // Fit bounds if there are markers
     if (markers.length > 0) {
       const group = L.featureGroup(markers);
       map.fitBounds(group.getBounds().pad(0.1));
     }
-  }, [items, navigate]);
+  }, [items, navigate, userLocation]);
 
   return (
     <div 
