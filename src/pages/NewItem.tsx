@@ -27,7 +27,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader } from '@/components/ui/loader';
-import { Calendar, Upload, MapPin } from 'lucide-react';
+import { LocationAutocomplete } from '@/components/ui/location-autocomplete';
+import { Calendar, Upload } from 'lucide-react';
 
 const itemSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(100),
@@ -251,7 +252,7 @@ const NewItem = () => {
                   )}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="location"
@@ -259,10 +260,11 @@ const NewItem = () => {
                       <FormItem>
                         <FormLabel>Location</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="Where was it lost/found?" className="pl-10" {...field} />
-                          </div>
+                          <LocationAutocomplete
+                            value={field.value}
+                            onChange={(value) => field.onChange(value)}
+                            placeholder="Where was it lost/found?"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
