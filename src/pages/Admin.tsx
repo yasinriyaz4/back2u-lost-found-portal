@@ -32,21 +32,30 @@ import {
   XCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Profile, Item, Report, Notification, ItemMatch } from '@/types/database';
+import { Profile, Item, Report, Notification, ItemMatch, AppRole } from '@/types/database';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type AdminMatch = { id: string; lost_item_id: string; found_item_id: string; match_score: number; match_reason?: string | null; status: string; created_at: string; lost_item?: Item; found_item?: Item };
+type UserWithRole = Profile & { role?: AppRole };
 
 const Admin = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [users, setUsers] = useState<Profile[]>([]);
+  const [users, setUsers] = useState<UserWithRole[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [notifications, setNotifications] = useState<(Notification & { profile?: Profile })[]>([]);
   const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [deleteNotificationId, setDeleteNotificationId] = useState<string | null>(null);
@@ -61,15 +70,27 @@ const Admin = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [usersRes, itemsRes, reportsRes, notificationsRes, matchesRes] = await Promise.all([
+        const [usersRes, rolesRes, itemsRes, reportsRes, notificationsRes, matchesRes] = await Promise.all([
           supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+          supabase.from('user_roles').select('user_id, role'),
           supabase.from('items').select('*, profiles(*)').order('created_at', { ascending: false }),
           supabase.from('reports').select('*, profiles(*), items(*)').order('created_at', { ascending: false }),
           supabase.from('notifications').select('*, profiles(*)').order('created_at', { ascending: false }),
           supabase.from('item_matches').select('*, lost_item:items!item_matches_lost_item_id_fkey(*), found_item:items!item_matches_found_item_id_fkey(*)').order('created_at', { ascending: false }),
         ]);
 
-        setUsers((usersRes.data as Profile[]) || []);
+        // Map roles to users
+        const rolesMap = new Map<string, AppRole>();
+        (rolesRes.data || []).forEach((r: { user_id: string; role: AppRole }) => {
+          rolesMap.set(r.user_id, r.role);
+        });
+
+        const usersWithRoles: UserWithRole[] = ((usersRes.data as Profile[]) || []).map(u => ({
+          ...u,
+          role: rolesMap.get(u.id) || 'user'
+        }));
+
+        setUsers(usersWithRoles);
         setItems((itemsRes.data as unknown as Item[]) || []);
         setReports((reportsRes.data as unknown as Report[]) || []);
         setNotifications((notificationsRes.data as unknown as (Notification & { profile?: Profile })[]) || []);
@@ -177,6 +198,46 @@ const Admin = () => {
       toast({ title: `Match ${newStatus}` });
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update match', variant: 'destructive' });
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, newRole: AppRole) => {
+    if (userId === user?.id) {
+      toast({ title: 'Error', description: 'You cannot change your own role', variant: 'destructive' });
+      return;
+    }
+
+    setUpdatingRole(userId);
+    try {
+      // First check if a role exists
+      const { data: existingRole } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existingRole) {
+        // Update existing role
+        const { error } = await supabase
+          .from('user_roles')
+          .update({ role: newRole })
+          .eq('user_id', userId);
+        if (error) throw error;
+      } else {
+        // Insert new role
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: newRole });
+        if (error) throw error;
+      }
+
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+      toast({ title: 'Role updated', description: `User role changed to ${newRole}` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to update role', variant: 'destructive' });
+    } finally {
+      setUpdatingRole(null);
     }
   };
 
@@ -318,6 +379,7 @@ const Admin = () => {
                         <TableRow>
                           <TableHead>Name</TableHead>
                           <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
                           <TableHead>Joined</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -327,6 +389,28 @@ const Admin = () => {
                           <TableRow key={u.id}>
                             <TableCell className="font-medium">{u.name}</TableCell>
                             <TableCell>{u.email}</TableCell>
+                            <TableCell>
+                              {u.id === user?.id ? (
+                                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                                  {u.role || 'user'} (you)
+                                </Badge>
+                              ) : (
+                                <Select
+                                  value={u.role || 'user'}
+                                  onValueChange={(value) => handleUpdateRole(u.id, value as AppRole)}
+                                  disabled={updatingRole === u.id}
+                                >
+                                  <SelectTrigger className="w-[120px] h-8">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="user">User</SelectItem>
+                                    <SelectItem value="moderator">Moderator</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </TableCell>
                             <TableCell>{format(new Date(u.created_at), 'MMM d, yyyy')}</TableCell>
                             <TableCell className="text-right">
                               {u.id !== user?.id && (
