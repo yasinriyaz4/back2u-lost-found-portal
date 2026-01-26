@@ -70,14 +70,19 @@ const Admin = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Fetch data without profile joins (no FK relationships)
         const [usersRes, rolesRes, itemsRes, reportsRes, notificationsRes, matchesRes] = await Promise.all([
           supabase.from('profiles').select('*').order('created_at', { ascending: false }),
           supabase.from('user_roles').select('user_id, role'),
-          supabase.from('items').select('*, profiles(*)').order('created_at', { ascending: false }),
-          supabase.from('reports').select('*, profiles(*), items(*)').order('created_at', { ascending: false }),
-          supabase.from('notifications').select('*, profiles(*)').order('created_at', { ascending: false }),
+          supabase.from('items').select('*').order('created_at', { ascending: false }),
+          supabase.from('reports').select('*').order('created_at', { ascending: false }),
+          supabase.from('notifications').select('*').order('created_at', { ascending: false }),
           supabase.from('item_matches').select('*, lost_item:items!item_matches_lost_item_id_fkey(*), found_item:items!item_matches_found_item_id_fkey(*)').order('created_at', { ascending: false }),
         ]);
+
+        // Create a map of profiles for joining
+        const profilesMap = new Map<string, Profile>();
+        ((usersRes.data as Profile[]) || []).forEach(p => profilesMap.set(p.id, p));
 
         // Map roles to users
         const rolesMap = new Map<string, AppRole>();
@@ -90,10 +95,32 @@ const Admin = () => {
           role: rolesMap.get(u.id) || 'user'
         }));
 
+        // Enrich items with profile data
+        const itemsWithProfiles = ((itemsRes.data || []) as Item[]).map(item => ({
+          ...item,
+          profiles: profilesMap.get(item.user_id)
+        }));
+
+        // Enrich reports with profile and item data
+        const itemsMap = new Map<string, Item>();
+        itemsWithProfiles.forEach(item => itemsMap.set(item.id, item));
+        
+        const reportsWithData = ((reportsRes.data || []) as Report[]).map(report => ({
+          ...report,
+          reporter: profilesMap.get(report.reporter_id),
+          item: itemsMap.get(report.item_id)
+        }));
+
+        // Enrich notifications with profile data
+        const notificationsWithProfiles = ((notificationsRes.data || []) as Notification[]).map(n => ({
+          ...n,
+          profile: profilesMap.get(n.user_id)
+        }));
+
         setUsers(usersWithRoles);
-        setItems((itemsRes.data as unknown as Item[]) || []);
-        setReports((reportsRes.data as unknown as Report[]) || []);
-        setNotifications((notificationsRes.data as unknown as (Notification & { profile?: Profile })[]) || []);
+        setItems(itemsWithProfiles);
+        setReports(reportsWithData as unknown as Report[]);
+        setNotifications(notificationsWithProfiles as unknown as (Notification & { profile?: Profile })[]);
         setMatches((matchesRes.data as unknown as AdminMatch[]) || []);
       } catch (err) {
         console.error(err);
