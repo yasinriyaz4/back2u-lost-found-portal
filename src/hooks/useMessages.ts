@@ -27,69 +27,80 @@ export function useMessages() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const unreadCount = messages.filter(m => m.to_user_id === user?.id && !m.is_read).length;
+  const userId = user?.id;
+  const unreadCount = messages.filter(m => m.to_user_id === userId && !m.is_read).length;
 
-  const fetchMessages = useCallback(async () => {
-    if (!user) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('messages')
-        .select('*, item:items(*)')
-        .or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-      if (!data?.length) {
-        setMessages([]);
-        return;
-      }
-
-      const userIds = [...new Set(data.flatMap(m => [m.from_user_id, m.to_user_id]))];
-      const profiles = await fetchProfilesForUsers(userIds);
-
-      setMessages(data.map(msg => ({
-        ...msg,
-        from_profile: profiles.get(msg.from_user_id),
-        to_profile: profiles.get(msg.to_user_id),
-      })) as MessageWithProfiles[]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch messages');
-    } finally {
+  useEffect(() => {
+    if (!userId) {
+      setMessages([]);
       setLoading(false);
+      return;
     }
-  }, [user]);
 
-  const sendMessage = useCallback(async (toUserId: string, content: string, itemId?: string) => {
-    if (!user) return { error: new Error('Not authenticated') };
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('messages')
+          .select('*, item:items(*)')
+          .or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`)
+          .order('created_at', { ascending: false });
+
+        if (cancelled) return;
+        if (fetchError) throw fetchError;
+
+        if (!data?.length) {
+          setMessages([]);
+          return;
+        }
+
+        const userIds = [...new Set(data.flatMap(m => [m.from_user_id, m.to_user_id]))];
+        const profiles = await fetchProfilesForUsers(userIds);
+
+        if (cancelled) return;
+        setMessages(data.map(msg => ({
+          ...msg,
+          from_profile: profiles.get(msg.from_user_id),
+          to_profile: profiles.get(msg.to_user_id),
+        })) as MessageWithProfiles[]);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch messages');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const sendMessage = async (toUserId: string, content: string, itemId?: string) => {
+    if (!userId) return { error: new Error('Not authenticated') };
 
     const { error } = await supabase.from('messages').insert({
-      from_user_id: user.id,
+      from_user_id: userId,
       to_user_id: toUserId,
       content,
       item_id: itemId ?? null,
     });
 
-    if (!error) fetchMessages();
     return { error };
-  }, [user, fetchMessages]);
+  };
 
-  const markAsRead = useCallback(async (messageId: string) => {
+  const markAsRead = async (messageId: string) => {
     const { error } = await supabase
       .from('messages')
       .update({ is_read: true })
       .eq('id', messageId);
 
-    if (!error) fetchMessages();
     return { error };
-  }, [fetchMessages]);
+  };
 
-  useEffect(() => {
-    if (user) fetchMessages();
-  }, [user, fetchMessages]);
-
-  return { messages, loading, error, unreadCount, sendMessage, markAsRead, refetch: fetchMessages };
+  return { messages, loading, error, unreadCount, sendMessage, markAsRead };
 }
