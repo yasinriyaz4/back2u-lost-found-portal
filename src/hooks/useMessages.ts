@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Message } from '@/types/database';
+import { Message, Profile } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const useMessages = () => {
@@ -15,21 +15,50 @@ export const useMessages = () => {
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch messages without the profile join hints
+      const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
-        .select(`
-          *,
-          from_profile:profiles!messages_from_user_id_fkey(*),
-          to_profile:profiles!messages_to_user_id_fkey(*),
-          item:items(*)
-        `)
+        .select('*, item:items(*)')
         .or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (messagesError) throw messagesError;
+
+      if (!messagesData || messagesData.length === 0) {
+        setMessages([]);
+        setUnreadCount(0);
+        setLoading(false);
+        return;
+      }
+
+      // Get unique user IDs from messages
+      const userIds = new Set<string>();
+      messagesData.forEach(m => {
+        userIds.add(m.from_user_id);
+        userIds.add(m.to_user_id);
+      });
+
+      // Fetch all profiles for these users
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', Array.from(userIds));
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of profiles
+      const profilesMap = new Map<string, Profile>();
+      profilesData?.forEach(p => profilesMap.set(p.id, p as Profile));
+
+      // Combine messages with profile data
+      const messagesWithProfiles = messagesData.map(m => ({
+        ...m,
+        from_profile: profilesMap.get(m.from_user_id),
+        to_profile: profilesMap.get(m.to_user_id),
+      }));
       
-      setMessages(data as unknown as Message[]);
-      setUnreadCount(data?.filter(m => m.to_user_id === user.id && !m.is_read).length || 0);
+      setMessages(messagesWithProfiles as unknown as Message[]);
+      setUnreadCount(messagesData?.filter(m => m.to_user_id === user.id && !m.is_read).length || 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch messages');
     } finally {
