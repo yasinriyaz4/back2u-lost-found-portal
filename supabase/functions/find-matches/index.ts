@@ -201,27 +201,46 @@ Only return items with score >= 0.5. Return fewer, higher quality matches rather
           if (insertError) {
             console.error("Error inserting match:", insertError);
           } else {
-            // Create notification for the matched item owner
+            // Send notification with email to the matched item owner
             const matchedItem = potentialMatches.find((i: Item) => i.id === match.item_id);
             if (matchedItem) {
-              await supabase.from("notifications").insert({
-                user_id: matchedItem.user_id,
-                type: "match",
-                title: "Potential Match Found!",
-                message: `Your ${matchedItem.category} item "${matchedItem.title}" might match a ${sourceItem.category} item: "${sourceItem.title}"`,
-                item_id: matchedItem.id,
-                related_item_id: sourceItem.id,
+              // Notify matched item owner with email
+              await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${supabaseServiceKey}`,
+                },
+                body: JSON.stringify({
+                  type: "match",
+                  userId: matchedItem.user_id,
+                  title: "Potential Match Found!",
+                  message: `Your ${matchedItem.category} item "${matchedItem.title}" might match a ${sourceItem.category} item: "${sourceItem.title}"`,
+                  itemId: matchedItem.id,
+                  relatedItemId: sourceItem.id,
+                  sendEmail: true,
+                }),
               });
 
-              // Also notify source item owner
-              await supabase.from("notifications").insert({
-                user_id: sourceItem.user_id,
-                type: "match",
-                title: "Potential Match Found!",
-                message: `Your ${sourceItem.category} item "${sourceItem.title}" might match a ${matchedItem.category} item: "${matchedItem.title}"`,
-                item_id: sourceItem.id,
-                related_item_id: matchedItem.id,
+              // Notify source item owner with email
+              await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${supabaseServiceKey}`,
+                },
+                body: JSON.stringify({
+                  type: "match",
+                  userId: sourceItem.user_id,
+                  title: "Potential Match Found!",
+                  message: `Your ${sourceItem.category} item "${sourceItem.title}" might match a ${matchedItem.category} item: "${matchedItem.title}"`,
+                  itemId: sourceItem.id,
+                  relatedItemId: matchedItem.id,
+                  sendEmail: true,
+                }),
               });
+
+              console.log("Email notifications sent for match between", sourceItem.id, "and", matchedItem.id);
             }
           }
         }
