@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useMessages } from '@/hooks/useMessages';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { PointsBadge } from '@/components/points/PointsBadge';
 import { 
   Menu, 
   X, 
@@ -21,7 +22,8 @@ import {
   LogOut,
   Shield,
   Search,
-  Plus
+  Plus,
+  Trophy
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -54,6 +56,9 @@ export const Navbar = () => {
           <Link to="/items" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Browse Items
           </Link>
+          <Link to="/leaderboard" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Leaderboard
+          </Link>
           {user && (
             <>
               <Link to="/items/new" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -66,6 +71,7 @@ export const Navbar = () => {
         <div className="flex items-center gap-2">
           {user ? (
             <>
+              <PointsBadge className="hidden md:flex" />
               <NotificationBell />
               
               <Link to="/messages" className="relative hidden md:flex">
@@ -115,6 +121,12 @@ export const Navbar = () => {
                       {unreadCount > 0 && (
                         <Badge className="ml-auto" variant="secondary">{unreadCount}</Badge>
                       )}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/leaderboard" className="cursor-pointer">
+                      <Trophy className="mr-2 h-4 w-4" />
+                      Leaderboard
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (
@@ -178,6 +190,14 @@ export const Navbar = () => {
             >
               <Search className="h-4 w-4" />
               Browse Items
+            </Link>
+            <Link 
+              to="/leaderboard" 
+              className="flex items-center gap-2 py-2 text-sm font-medium"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Trophy className="h-4 w-4" />
+              Leaderboard
             </Link>
             {user ? (
               <>

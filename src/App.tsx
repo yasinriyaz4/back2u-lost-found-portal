@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import Admin from "./pages/Admin";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 import { Loader } from "./components/ui/loader";
 
@@ -92,6 +93,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route path="/leaderboard" element={<Leaderboard />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
