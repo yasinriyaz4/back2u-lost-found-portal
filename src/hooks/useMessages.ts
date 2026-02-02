@@ -66,19 +66,40 @@ export const useMessages = () => {
     }
   };
 
-  const sendMessage = async (toUserId: string, content: string, itemId?: string) => {
+  const sendMessage = async (toUserId: string, content: string, itemId?: string, imageUrl?: string) => {
     if (!user) return { error: new Error('Not authenticated') };
 
-    const { error } = await supabase
+    const messageContent = imageUrl ? `[Image: ${imageUrl}]\n${content}` : content;
+
+    const { data, error } = await supabase
       .from('messages')
       .insert({
         from_user_id: user.id,
         to_user_id: toUserId,
-        content,
+        content: messageContent,
         item_id: itemId || null
-      });
+      })
+      .select()
+      .single();
 
-    if (!error) {
+    if (!error && data) {
+      // Trigger email notification for the recipient
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'message',
+            userId: toUserId,
+            title: 'New Message',
+            message: `You have a new message${itemId ? ' about an item' : ''}: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`,
+            itemId: itemId || undefined,
+            sendEmail: true,
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        // Don't fail the message send if email fails
+      }
+      
       fetchMessages();
     }
 

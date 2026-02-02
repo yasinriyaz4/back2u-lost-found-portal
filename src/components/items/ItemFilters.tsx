@@ -7,21 +7,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { ItemCategory, ItemStatus } from '@/types/database';
-import { Search, X, Calendar } from 'lucide-react';
+import { Search, X, Calendar, MapPin, SlidersHorizontal } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { useState } from 'react';
 
 interface ItemFiltersProps {
   search: string;
   category: ItemCategory | 'all';
   status: ItemStatus | 'all';
   dateRange?: { from: Date | undefined; to: Date | undefined };
+  nearbyRadius?: number;
+  nearbyMode?: boolean;
   onSearchChange: (value: string) => void;
   onCategoryChange: (value: ItemCategory | 'all') => void;
   onStatusChange: (value: ItemStatus | 'all') => void;
   onDateRangeChange?: (range: { from: Date | undefined; to: Date | undefined }) => void;
+  onNearbyRadiusChange?: (radius: number) => void;
   onClear: () => void;
 }
 
@@ -30,12 +35,16 @@ export const ItemFilters = ({
   category,
   status,
   dateRange,
+  nearbyRadius = 50,
+  nearbyMode = false,
   onSearchChange,
   onCategoryChange,
   onStatusChange,
   onDateRangeChange,
+  onNearbyRadiusChange,
   onClear,
 }: ItemFiltersProps) => {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const hasFilters = search || category !== 'all' || status !== 'all' || dateRange?.from || dateRange?.to;
 
   return (
@@ -105,12 +114,59 @@ export const ItemFilters = ({
           </Popover>
         )}
 
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className={showAdvanced ? 'bg-accent' : ''}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
+
         {hasFilters && (
           <Button variant="ghost" size="icon" onClick={onClear}>
             <X className="h-4 w-4" />
           </Button>
         )}
       </div>
+
+      {/* Advanced Filters */}
+      {showAdvanced && (
+        <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+          <h4 className="text-sm font-medium">Advanced Filters</h4>
+          
+          {/* Distance Radius - only show when nearby mode is active */}
+          {nearbyMode && onNearbyRadiusChange && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-muted-foreground flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Search Radius
+                </label>
+                <span className="text-sm font-medium">{nearbyRadius} km</span>
+              </div>
+              <Slider
+                value={[nearbyRadius]}
+                onValueChange={(values) => onNearbyRadiusChange(values[0])}
+                min={5}
+                max={200}
+                step={5}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>5 km</span>
+                <span>200 km</span>
+              </div>
+            </div>
+          )}
+
+          {!nearbyMode && (
+            <p className="text-sm text-muted-foreground">
+              Enable "Nearby" mode to filter by distance radius.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
