@@ -211,6 +211,44 @@ export type Database = {
           },
         ]
       }
+      point_transactions: {
+        Row: {
+          action_type: Database["public"]["Enums"]["point_action"]
+          created_at: string
+          id: string
+          item_id: string | null
+          points: number
+          user_id: string
+          verified: boolean
+        }
+        Insert: {
+          action_type: Database["public"]["Enums"]["point_action"]
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          points: number
+          user_id: string
+          verified?: boolean
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["point_action"]
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          points?: number
+          user_id?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "point_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -279,6 +317,30 @@ export type Database = {
           },
         ]
       }
+      user_points: {
+        Row: {
+          created_at: string
+          id: string
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          total_points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -305,6 +367,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_points: {
+        Args: {
+          _action_type: Database["public"]["Enums"]["point_action"]
+          _item_id?: string
+          _points: number
+          _user_id: string
+          _verified?: boolean
+        }
+        Returns: undefined
+      }
+      get_leaderboard: {
+        Args: { _limit?: number }
+        Returns: {
+          rank: number
+          total_points: number
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -317,6 +397,12 @@ export type Database = {
       app_role: "admin" | "moderator" | "user"
       item_category: "lost" | "found"
       item_status: "active" | "claimed" | "resolved"
+      point_action:
+        | "found_item_posted"
+        | "item_returned"
+        | "false_claim"
+        | "reported_misuse"
+        | "report_verified"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -447,6 +533,13 @@ export const Constants = {
       app_role: ["admin", "moderator", "user"],
       item_category: ["lost", "found"],
       item_status: ["active", "claimed", "resolved"],
+      point_action: [
+        "found_item_posted",
+        "item_returned",
+        "false_claim",
+        "reported_misuse",
+        "report_verified",
+      ],
     },
   },
 } as const

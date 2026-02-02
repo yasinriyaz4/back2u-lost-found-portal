@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useItems } from '@/hooks/useItems';
+import { usePoints } from '@/hooks/usePoints';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +26,9 @@ import {
   CheckCircle,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  Star,
+  Trophy
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -33,6 +36,7 @@ const Dashboard = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const { userPoints, userRank } = usePoints();
   
   const { items, loading, refetch } = useItems({
     filters: { userId: user?.id },
@@ -88,7 +92,7 @@ const Dashboard = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -133,6 +137,24 @@ const Dashboard = () => {
               <div className="text-2xl font-bold">{resolvedItems.length}</div>
             </CardContent>
           </Card>
+          <Link to="/leaderboard" className="block">
+            <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer border-primary/20 bg-primary/5">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Your Points
+                </CardTitle>
+                <Star className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-primary">{userPoints}</div>
+                {userRank && (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Trophy className="h-3 w-3" /> Rank #{userRank}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Items Table */}

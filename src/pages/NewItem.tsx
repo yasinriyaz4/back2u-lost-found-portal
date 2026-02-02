@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePoints } from '@/hooks/usePoints';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader } from '@/components/ui/loader';
 import { LocationAutocomplete } from '@/components/ui/location-autocomplete';
-import { Calendar, Upload } from 'lucide-react';
+import { Calendar, Upload, Star } from 'lucide-react';
 
 const itemSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(100),
@@ -45,6 +46,7 @@ const MAX_IMAGES = 5;
 
 const NewItem = () => {
   const { user, profile } = useAuth();
+  const { awardPoints } = usePoints();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -164,11 +166,25 @@ const NewItem = () => {
         supabase.functions.invoke('find-matches', {
           body: { itemId: insertedItem.id },
         }).catch(console.error);
+
+        // Award points for posting a found item (verified action)
+        if (data.category === 'found') {
+          awardPoints.mutate({
+            userId: user.id,
+            actionType: 'found_item_posted',
+            itemId: insertedItem.id,
+            verified: true,
+          });
+        }
       }
 
+      const pointsMessage = data.category === 'found' 
+        ? " You've earned 10 points for helping the community!" 
+        : "";
+      
       toast({
         title: 'Item posted successfully!',
-        description: `Your ${data.category} item has been posted. We'll notify you of any matches!`,
+        description: `Your ${data.category} item has been posted.${pointsMessage} We'll notify you of any matches!`,
       });
 
       navigate('/dashboard');

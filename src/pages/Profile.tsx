@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePoints, POINT_VALUES } from '@/hooks/usePoints';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,14 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Loader } from '@/components/ui/loader';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Save, Trash2, Bell } from 'lucide-react';
+import { Camera, Save, Trash2, Bell, Star, Trophy, TrendingUp } from 'lucide-react';
+import { format } from 'date-fns';
 
 const Profile = () => {
   const { user, profile, updateProfile, signOut } = useAuth();
+  const { userPoints, userRank, transactions, transactionsLoading } = usePoints();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -25,6 +29,17 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const getActionLabel = (actionType: string) => {
+    const labels: Record<string, string> = {
+      found_item_posted: 'Posted found item',
+      item_returned: 'Item returned',
+      false_claim: 'False claim penalty',
+      reported_misuse: 'Reported misuse',
+      report_verified: 'Report verified',
+    };
+    return labels[actionType] || actionType;
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -120,6 +135,72 @@ const Profile = () => {
         <h1 className="text-3xl font-bold mb-8">Profile Settings</h1>
 
         <div className="space-y-6">
+          {/* Points Summary Card */}
+          <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-yellow-500" />
+                Your Points
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-8">
+                  <div>
+                    <p className="text-4xl font-bold text-primary">{userPoints}</p>
+                    <p className="text-sm text-muted-foreground">Total Points</p>
+                  </div>
+                  {userRank && (
+                    <div>
+                      <p className="text-4xl font-bold">#{userRank}</p>
+                      <p className="text-sm text-muted-foreground">Leaderboard Rank</p>
+                    </div>
+                  )}
+                </div>
+                <Button variant="outline" asChild>
+                  <Link to="/leaderboard">
+                    <Trophy className="mr-2 h-4 w-4" />
+                    View Leaderboard
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Transactions */}
+          {transactions.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Recent Activity
+                </CardTitle>
+                <CardDescription>Your point transaction history</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {transactionsLoading ? (
+                  <Loader size="sm" />
+                ) : (
+                  <div className="space-y-3">
+                    {transactions.slice(0, 5).map((tx) => (
+                      <div key={tx.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div>
+                          <p className="font-medium text-sm">{getActionLabel(tx.action_type)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(tx.created_at), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <Badge variant={tx.points > 0 ? 'default' : 'destructive'}>
+                          {tx.points > 0 ? '+' : ''}{tx.points}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Avatar */}
           <Card>
             <CardHeader>
