@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader } from '@/components/ui/loader';
-import { Send, ArrowLeft } from 'lucide-react';
+import { Send, ArrowLeft, Image, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface ChatThreadProps {
   otherUserId: string;
@@ -23,8 +24,12 @@ export const ChatThread = ({ otherUserId, otherProfile, itemId, onBack }: ChatTh
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -113,23 +118,115 @@ export const ChatThread = ({ otherUserId, otherProfile, itemId, onBack }: ChatTh
     scrollToBottom();
   }, [messages]);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be smaller than 5MB');
+      return;
+    }
+
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearSelectedImage = () => {
+    setSelectedImage(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+
+    const { data, error } = await supabase.storage
+      .from('item-images')
+      .upload(`chat/${fileName}`, file);
+
+    if (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image');
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('item-images')
+      .getPublicUrl(`chat/${fileName}`);
+
+    return publicUrlData.publicUrl;
+  };
+
   const handleSend = async () => {
-    if (!newMessage.trim() || !user || sending) return;
+    if ((!newMessage.trim() && !selectedImage) || !user || sending) return;
 
     setSending(true);
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        from_user_id: user.id,
-        to_user_id: otherUserId,
-        content: newMessage.trim(),
-        item_id: itemId || null,
-      });
+    setUploadingImage(!!selectedImage);
 
-    if (!error) {
-      setNewMessage('');
+    try {
+      let imageUrl: string | null = null;
+      
+      if (selectedImage) {
+        imageUrl = await uploadImage(selectedImage);
+        if (!imageUrl) {
+          setSending(false);
+          setUploadingImage(false);
+          return;
+        }
+      }
+
+      const content = imageUrl 
+        ? `[IMAGE]${imageUrl}[/IMAGE]${newMessage.trim() ? '\n' + newMessage.trim() : ''}`
+        : newMessage.trim();
+
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          from_user_id: user.id,
+          to_user_id: otherUserId,
+          content,
+          item_id: itemId || null,
+        });
+
+      if (!error) {
+        setNewMessage('');
+        clearSelectedImage();
+
+        // Send email notification
+        try {
+          await supabase.functions.invoke('send-notification', {
+            body: {
+              type: 'message',
+              userId: otherUserId,
+              title: 'New Message',
+              message: imageUrl 
+                ? 'You received a new image message'
+                : `New message: "${newMessage.substring(0, 50)}${newMessage.length > 50 ? '...' : ''}"`,
+              itemId: itemId || undefined,
+              sendEmail: true,
+            }
+          });
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+        }
+      }
+    } finally {
+      setSending(false);
+      setUploadingImage(false);
     }
-    setSending(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -153,6 +250,31 @@ export const ChatThread = ({ otherUserId, otherProfile, itemId, onBack }: ChatTh
     typingTimeoutRef.current = setTimeout(() => {
       channel.track({ user_id: user?.id, typing: false });
     }, 2000);
+  };
+
+  const renderMessageContent = (content: string) => {
+    // Check if message contains an image
+    const imageMatch = content.match(/\[IMAGE\](.*?)\[\/IMAGE\]/);
+    
+    if (imageMatch) {
+      const imageUrl = imageMatch[1];
+      const textContent = content.replace(/\[IMAGE\].*?\[\/IMAGE\]\n?/, '').trim();
+      
+      return (
+        <div className="space-y-2">
+          <img 
+            src={imageUrl} 
+            alt="Shared image" 
+            className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => window.open(imageUrl, '_blank')}
+            style={{ maxHeight: '200px', objectFit: 'contain' }}
+          />
+          {textContent && <p className="text-sm whitespace-pre-wrap">{textContent}</p>}
+        </div>
+      );
+    }
+    
+    return <p className="text-sm whitespace-pre-wrap">{content}</p>;
   };
 
   if (loading) {
@@ -205,7 +327,7 @@ export const ChatThread = ({ otherUserId, otherProfile, itemId, onBack }: ChatTh
                       : 'bg-muted rounded-bl-md'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  {renderMessageContent(msg.content)}
                   <p className={`text-xs mt-1 ${isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                     {format(new Date(msg.created_at), 'h:mm a')}
                   </p>
@@ -217,9 +339,45 @@ export const ChatThread = ({ otherUserId, otherProfile, itemId, onBack }: ChatTh
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Image Preview */}
+      {imagePreview && (
+        <div className="px-4 pb-2">
+          <div className="relative inline-block">
+            <img 
+              src={imagePreview} 
+              alt="Preview" 
+              className="h-20 rounded-lg border border-border"
+            />
+            <Button 
+              variant="destructive" 
+              size="icon" 
+              className="absolute -top-2 -right-2 h-6 w-6"
+              onClick={clearSelectedImage}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="p-4 border-t border-border bg-card">
         <div className="flex gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending}
+          >
+            <Image className="h-5 w-5" />
+          </Button>
           <Input
             placeholder="Type a message..."
             value={newMessage}
@@ -229,9 +387,21 @@ export const ChatThread = ({ otherUserId, otherProfile, itemId, onBack }: ChatTh
             }}
             onKeyPress={handleKeyPress}
             className="flex-1"
+            disabled={sending}
           />
-          <Button onClick={handleSend} disabled={!newMessage.trim() || sending}>
-            {sending ? <Loader size="sm" /> : <Send className="h-4 w-4" />}
+          <Button 
+            onClick={handleSend} 
+            disabled={(!newMessage.trim() && !selectedImage) || sending}
+          >
+            {sending ? (
+              uploadingImage ? (
+                <Loader size="sm" />
+              ) : (
+                <Loader size="sm" />
+              )
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>

@@ -174,10 +174,13 @@ const Items = () => {
             category={category}
             status={status}
             dateRange={dateRange}
+            nearbyRadius={nearbyRadius}
+            nearbyMode={nearbyMode}
             onSearchChange={(v) => { setSearch(v); setPage(1); }}
             onCategoryChange={(v) => { setCategory(v); setPage(1); }}
             onStatusChange={(v) => { setStatus(v); setPage(1); }}
             onDateRangeChange={(range) => { setDateRange(range); setPage(1); }}
+            onNearbyRadiusChange={(radius) => setNearbyRadius(radius)}
             onClear={handleClear}
           />
         </div>
