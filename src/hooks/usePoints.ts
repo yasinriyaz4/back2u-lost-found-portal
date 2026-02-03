@@ -122,11 +122,14 @@ export const usePoints = () => {
         _user_id: userId,
         _points: points,
         _action_type: actionType,
-        _item_id: itemId || null,
+        _item_id: itemId ?? undefined,
         _verified: verified,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Award points error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-points'] });
