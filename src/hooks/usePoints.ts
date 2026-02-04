@@ -118,6 +118,12 @@ export const usePoints = () => {
     }) => {
       const points = POINT_VALUES[actionType];
       
+      // Get previous rank before awarding points
+      const { data: previousLeaderboard } = await supabase.rpc('get_leaderboard', { _limit: 100 });
+      const previousRank = (previousLeaderboard as LeaderboardEntry[] | null)?.find(
+        entry => entry.user_id === userId
+      )?.rank;
+      
       const { error } = await supabase.rpc('award_points', {
         _user_id: userId,
         _points: points,
@@ -129,6 +135,29 @@ export const usePoints = () => {
       if (error) {
         console.error('Award points error:', error);
         throw error;
+      }
+
+      // Get new rank after awarding points
+      const { data: newLeaderboard } = await supabase.rpc('get_leaderboard', { _limit: 100 });
+      const newRank = (newLeaderboard as LeaderboardEntry[] | null)?.find(
+        entry => entry.user_id === userId
+      )?.rank;
+
+      // Send email notification for points earned
+      try {
+        await supabase.functions.invoke('send-points-notification', {
+          body: {
+            userId,
+            points,
+            actionType,
+            itemId,
+            previousRank: previousRank ? Number(previousRank) : undefined,
+            newRank: newRank ? Number(newRank) : undefined,
+          }
+        });
+      } catch (notificationError) {
+        console.error('Failed to send points notification:', notificationError);
+        // Don't fail the mutation if notification fails
       }
     },
     onSuccess: () => {
