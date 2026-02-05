@@ -104,7 +104,7 @@ serve(async (req) => {
         );
 
         const emailResponse = await resend.emails.send({
-          from: "Back2U <onboarding@resend.dev>",
+          from: "Back2U <noreply@gprec.in>",
           to: [profile.email],
           subject: title + " - Back2U",
           html: emailHtml,
