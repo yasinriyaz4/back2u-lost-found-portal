@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,7 +29,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader } from '@/components/ui/loader';
-import { Calendar, Upload, MapPin, ArrowLeft } from 'lucide-react';
+import { Calendar, Upload, ArrowLeft } from 'lucide-react';
+import { LocationAutocomplete } from '@/components/ui/location-autocomplete';
 
 const itemSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(100),
@@ -55,7 +57,7 @@ const EditItem = () => {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingUrls, setExistingUrls] = useState<string[]>([]);
-
+  const [coordinates, setCoordinates] = useState<{ lat: number; lon: number } | null>(null);
   const form = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
@@ -87,6 +89,9 @@ const EditItem = () => {
           ? [item.image_url] 
           : [];
       setExistingUrls(urls);
+      if ((item as any).latitude && (item as any).longitude) {
+        setCoordinates({ lat: (item as any).latitude, lon: (item as any).longitude });
+      }
     }
   }, [item, form]);
 
@@ -187,6 +192,8 @@ const EditItem = () => {
           status: data.status,
           image_url: allImageUrls[0] || null,
           image_urls: allImageUrls,
+          latitude: coordinates?.lat || null,
+          longitude: coordinates?.lon || null,
         })
         .eq('id', item.id);
 
@@ -336,10 +343,14 @@ const EditItem = () => {
                       <FormItem>
                         <FormLabel>Location</FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="Where was it lost/found?" className="pl-10" {...field} />
-                          </div>
+                          <LocationAutocomplete
+                            value={field.value}
+                            onChange={(value, coords) => {
+                              field.onChange(value);
+                              if (coords) setCoordinates(coords);
+                            }}
+                            placeholder="Where was it lost/found?"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

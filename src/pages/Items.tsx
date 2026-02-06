@@ -11,38 +11,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronLeft, ChevronRight, Grid, Map, Navigation, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-// Mock geocoding - same as in ItemMap
-const locationCoordinates: Record<string, [number, number]> = {
-  'new york': [40.7128, -74.0060],
-  'los angeles': [34.0522, -118.2437],
-  'chicago': [41.8781, -87.6298],
-  'houston': [29.7604, -95.3698],
-  'phoenix': [33.4484, -112.0740],
-  'philadelphia': [39.9526, -75.1652],
-  'san antonio': [29.4241, -98.4936],
-  'san diego': [32.7157, -117.1611],
-  'dallas': [32.7767, -96.7970],
-  'san jose': [37.3382, -121.8863],
-  'austin': [30.2672, -97.7431],
-  'london': [51.5074, -0.1278],
-  'paris': [48.8566, 2.3522],
-  'tokyo': [35.6762, 139.6503],
-  'sydney': [-33.8688, 151.2093],
-  'default': [39.8283, -98.5795],
-};
-
-const getCoordinatesForLocation = (location: string): [number, number] => {
-  const lowercaseLocation = location.toLowerCase();
-  for (const [key, coords] of Object.entries(locationCoordinates)) {
-    if (lowercaseLocation.includes(key)) {
-      return coords;
-    }
+// Get coordinates from item - uses stored coordinates, falls back to null
+const getItemCoordinates = (item: Item): [number, number] | null => {
+  const itemAny = item as any;
+  if (itemAny.latitude && itemAny.longitude) {
+    return [itemAny.latitude, itemAny.longitude];
   }
-  const defaultCoords = locationCoordinates['default'];
-  return [
-    defaultCoords[0] + (Math.random() - 0.5) * 10,
-    defaultCoords[1] + (Math.random() - 0.5) * 10,
-  ];
+  return null;
 };
 
 const Items = () => {
@@ -76,14 +51,16 @@ const Items = () => {
   // Filter items by distance when nearby mode is active
   const filteredItems = nearbyMode && latitude && longitude
     ? items.filter((item) => {
-        const [lat, lon] = getCoordinatesForLocation(item.location);
-        const distance = calculateDistance(latitude, longitude, lat, lon);
+        const coords = getItemCoordinates(item);
+        if (!coords) return false;
+        const distance = calculateDistance(latitude, longitude, coords[0], coords[1]);
         return distance <= nearbyRadius;
       }).sort((a, b) => {
-        const [latA, lonA] = getCoordinatesForLocation(a.location);
-        const [latB, lonB] = getCoordinatesForLocation(b.location);
-        const distA = calculateDistance(latitude!, longitude!, latA, lonA);
-        const distB = calculateDistance(latitude!, longitude!, latB, lonB);
+        const coordsA = getItemCoordinates(a);
+        const coordsB = getItemCoordinates(b);
+        if (!coordsA || !coordsB) return 0;
+        const distA = calculateDistance(latitude!, longitude!, coordsA[0], coordsA[1]);
+        const distB = calculateDistance(latitude!, longitude!, coordsB[0], coordsB[1]);
         return distA - distB;
       })
     : items;

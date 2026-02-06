@@ -69,7 +69,9 @@ export type Database = {
           image_url: string | null
           image_urls: string[] | null
           item_date: string
+          latitude: number | null
           location: string
+          longitude: number | null
           status: Database["public"]["Enums"]["item_status"]
           title: string
           updated_at: string
@@ -84,7 +86,9 @@ export type Database = {
           image_url?: string | null
           image_urls?: string[] | null
           item_date: string
+          latitude?: number | null
           location: string
+          longitude?: number | null
           status?: Database["public"]["Enums"]["item_status"]
           title: string
           updated_at?: string
@@ -99,7 +103,9 @@ export type Database = {
           image_url?: string | null
           image_urls?: string[] | null
           item_date?: string
+          latitude?: number | null
           location?: string
+          longitude?: number | null
           status?: Database["public"]["Enums"]["item_status"]
           title?: string
           updated_at?: string
