@@ -52,6 +52,7 @@ const NewItem = () => {
   const [loading, setLoading] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lon: number } | null>(null);
 
   const form = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
@@ -149,6 +150,8 @@ const NewItem = () => {
         contact_number: data.contact_number || null,
         image_url: imageUrls[0] || null,
         image_urls: imageUrls,
+        latitude: coordinates?.lat || null,
+        longitude: coordinates?.lon || null,
       });
 
       if (error) throw error;
@@ -278,7 +281,10 @@ const NewItem = () => {
                         <FormControl>
                           <LocationAutocomplete
                             value={field.value}
-                            onChange={(value) => field.onChange(value)}
+                            onChange={(value, coords) => {
+                              field.onChange(value);
+                              if (coords) setCoordinates(coords);
+                            }}
                             placeholder="Where was it lost/found?"
                           />
                         </FormControl>
