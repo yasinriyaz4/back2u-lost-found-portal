@@ -32,7 +32,7 @@ const Home = () => {
               Reunite with What Matters
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Lost something precious? Found an item? Our portal connects people to help reunite lost belongings with their rightful owners.
+              Lost something precious? Found an item? Back2U connects people to help reunite lost belongings with their rightful owners.
             </p>
             
             {/* Search Bar */}
