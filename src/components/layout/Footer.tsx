@@ -8,9 +8,9 @@ export const Footer = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-                B2U
+                L&F
               </div>
-              <span className="font-bold text-xl">Back2U</span>
+              <span className="font-bold text-xl">Lost & Found</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Helping reunite people with their lost belongings. Post lost items or report found ones.
@@ -46,7 +46,7 @@ export const Footer = () => {
         </div>
 
         <div className="mt-10 pt-6 border-t text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Back2U. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Lost & Found Portal. All rights reserved.</p>
         </div>
       </div>
     </footer>

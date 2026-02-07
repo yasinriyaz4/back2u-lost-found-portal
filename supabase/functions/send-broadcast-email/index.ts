@@ -22,8 +22,8 @@ serve(async (req) => {
 
     const { subject, message } = await req.json();
 
-    const emailSubject = subject || "Update from Back2U";
-    const emailMessage = message || "Thank you for being part of the Back2U community! We're working hard to help reunite people with their lost items.";
+    const emailSubject = subject || "Update from Lost & Found Portal";
+    const emailMessage = message || "Thank you for being part of our community! We're working hard to help reunite people with their lost items.";
 
     // Fetch all user profiles
     const { data: profiles, error: profilesError } = await supabase
@@ -51,26 +51,26 @@ serve(async (req) => {
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">Back2U</h1>
+              <h1 style="color: white; margin: 0; font-size: 28px;">Lost & Found</h1>
             </div>
             <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
               <p style="color: #374151; font-size: 16px;">Hi ${profile.name || "there"},</p>
               <p style="color: #374151; font-size: 16px; line-height: 1.6;">${emailMessage}</p>
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://id-preview--bd5bdb4a-10bf-4b7e-af76-a1b3c4d2cd41.lovable.app" 
+                 <a href="https://id-preview--bd5bdb4a-10bf-4b7e-af76-a1b3c4d2cd41.lovable.app" 
                    style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                  Visit Back2U
+                   Visit Portal
                 </a>
               </div>
               <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 30px;">
-                You're receiving this because you're a member of Back2U.
+                You're receiving this because you're a member of our community.
               </p>
             </div>
           </div>
         `;
 
         const result = await resend.emails.send({
-          from: "Back2U <onboarding@resend.dev>",
+          from: "Lost & Found <onboarding@resend.dev>",
           to: [profile.email],
           subject: emailSubject,
           html: emailHtml,

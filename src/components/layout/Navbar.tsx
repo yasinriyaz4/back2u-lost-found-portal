@@ -43,9 +43,9 @@ export const Navbar = () => {
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-            B2U
+            L&F
           </div>
-          <span className="hidden font-bold text-xl sm:inline-block">Back2U</span>
+          <span className="hidden font-bold text-xl sm:inline-block">Lost & Found</span>
         </Link>
 
         {/* Desktop Navigation */}

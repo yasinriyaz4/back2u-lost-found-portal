@@ -91,7 +91,7 @@ const Auth = () => {
     } else {
       toast({
         title: 'Account created!',
-        description: 'Welcome to Back2U!',
+        description: 'Welcome! Your account is ready.',
       });
       navigate('/dashboard');
     }
@@ -103,7 +103,7 @@ const Auth = () => {
         <div className="text-center">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl">
-              B2U
+              L&F
             </div>
           </Link>
           <h1 className="text-2xl font-bold">
@@ -112,7 +112,7 @@ const Auth = () => {
           <p className="text-muted-foreground mt-2">
             {mode === 'signin' 
               ? 'Sign in to your account to continue' 
-              : 'Join Back2U to help reunite lost items'}
+              : 'Join us to help reunite lost items'}
           </p>
         </div>
 
