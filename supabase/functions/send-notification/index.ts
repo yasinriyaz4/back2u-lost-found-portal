@@ -67,7 +67,7 @@ serve(async (req) => {
 
       try {
         const emailResponse = await resend.emails.send({
-          from: "Back2U <onboarding@resend.dev>",
+          from: "Lost & Found <onboarding@resend.dev>",
           to: [profile.email],
           subject: emailSubject,
           html: emailHtml,
@@ -96,13 +96,13 @@ serve(async (req) => {
 function getEmailSubject(type: string, title: string): string {
   switch (type) {
     case 'match':
-      return `🎉 ${title} - Back2U`;
+      return `🎉 ${title} - Lost & Found`;
     case 'message':
-      return `💬 New Message - Back2U`;
+      return `💬 New Message - Lost & Found`;
     case 'status_change':
-      return `📋 ${title} - Back2U`;
+      return `📋 ${title} - Lost & Found`;
     default:
-      return `Back2U Notification`;
+      return `Lost & Found Notification`;
   }
 }
 
@@ -122,7 +122,7 @@ function getEmailHtml(type: string, title: string, message: string, userName: st
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 28px;">Back2U</h1>
+        <h1 style="color: white; margin: 0; font-size: 28px;">Lost & Found</h1>
         <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Lost & Found Portal</p>
       </div>
       
@@ -135,14 +135,14 @@ function getEmailHtml(type: string, title: string, message: string, userName: st
         </div>
         
         <div style="margin-top: 30px; text-align: center;">
-          <a href="https://back2u.lovable.app/dashboard" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">View on Back2U</a>
+          <a href="https://id-preview--bd5bdb4a-10bf-4b7e-af76-a1b3c4d2cd41.lovable.app/dashboard" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">View Dashboard</a>
         </div>
         
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
         
         <p style="font-size: 12px; color: #9ca3af; text-align: center;">
-          You're receiving this email because you have notifications enabled on Back2U.<br>
-          <a href="https://back2u.lovable.app/profile" style="color: #667eea;">Manage your notification preferences</a>
+          You're receiving this email because you have notifications enabled.<br>
+          <a href="https://id-preview--bd5bdb4a-10bf-4b7e-af76-a1b3c4d2cd41.lovable.app/profile" style="color: #667eea;">Manage your notification preferences</a>
         </p>
       </div>
     </body>
